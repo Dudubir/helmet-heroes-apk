@@ -49,7 +49,7 @@ class MainActivity : Activity() {
         super.onCreate(savedInstanceState)
 
         prefs = getSharedPreferences("helmet_heroes", MODE_PRIVATE)
-        keys = KeySender { webView }
+        keys = KeySender({ webView }, { focusGame() })
 
         root = FrameLayout(this).apply { setBackgroundColor(Color.BLACK) }
         setContentView(root)
@@ -108,9 +108,19 @@ class MainActivity : Activity() {
         }
 
         wv.webViewClient = object : WebViewClient() {
+            // Pages sometimes try to open app links (market://, intent://, ...).
+            // WebView cannot open those, so ignore them instead of showing an error.
+            override fun shouldOverrideUrlLoading(
+                view: WebView, request: WebResourceRequest
+            ): Boolean {
+                val scheme = request.url.scheme?.lowercase()
+                return scheme !in ALLOWED_SCHEMES
+            }
+
             override fun onReceivedError(
                 view: WebView, request: WebResourceRequest, error: WebResourceError
             ) {
+                if (error.errorCode == ERROR_UNSUPPORTED_SCHEME) return
                 if (request.isForMainFrame) {
                     showError("Could not load the game.\n(${error.description})")
                 }
@@ -157,8 +167,21 @@ class MainActivity : Activity() {
     private fun scheduleFit() {
         if (!prefs.getBoolean(PREF_FIT, true)) return
         for (delay in longArrayOf(800L, 2500L, 6000L, 12000L)) {
-            handler.postDelayed({ webView?.evaluateJavascript(FIT_JS, null) }, delay)
+            handler.postDelayed({
+                webView?.evaluateJavascript(FIT_JS, null)
+                webView?.evaluateJavascript(FOCUS_JS, null)
+            }, delay)
         }
+    }
+
+    private var lastFocusJs = 0L
+
+    /** Moves keyboard focus from any page link to the game itself (throttled). */
+    private fun focusGame() {
+        val now = android.os.SystemClock.uptimeMillis()
+        if (now - lastFocusJs < 1500) return
+        lastFocusJs = now
+        webView?.evaluateJavascript(FOCUS_JS, null)
     }
 
     private fun loadGame() {
@@ -341,6 +364,37 @@ class MainActivity : Activity() {
     companion object {
         private const val PREF_CONTROLS = "show_controls"
         private const val PREF_FIT = "fit_game"
+
+        private val ALLOWED_SCHEMES = setOf("http", "https", "about", "blob", "data")
+
+        /**
+         * Stops Space/arrows from scrolling the page or pressing page links, and gives
+         * keyboard focus to the game element. NOT VERIFIED against the real page.
+         */
+        private val FOCUS_JS = """
+            (function(){
+              if (!window.__hhKeys) {
+                window.__hhKeys = true;
+                var block = function(e){
+                  var t = e.target, tag = t && t.tagName;
+                  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (t && t.isContentEditable)) return;
+                  var k = e.key;
+                  if (k === ' ' || k === 'ArrowUp' || k === 'ArrowDown' || k === 'ArrowLeft' || k === 'ArrowRight') e.preventDefault();
+                };
+                window.addEventListener('keydown', block, true);
+                window.addEventListener('keyup', block, true);
+              }
+              var a = document.activeElement;
+              if (a && (a.tagName === 'A' || a.tagName === 'BUTTON')) a.blur();
+              var els = [].slice.call(document.querySelectorAll('canvas,embed,object,iframe'));
+              els = els.filter(function(e){ return e.offsetWidth * e.offsetHeight > 20000; });
+              if (!els.length) return;
+              els.sort(function(a,b){ return b.offsetWidth*b.offsetHeight - a.offsetWidth*a.offsetHeight; });
+              var g = els[0];
+              if (!g.hasAttribute('tabindex')) g.setAttribute('tabindex', '0');
+              g.focus();
+            })();
+        """.trimIndent()
 
         /**
          * Best-effort: finds the largest canvas/embed/object/iframe on the page and

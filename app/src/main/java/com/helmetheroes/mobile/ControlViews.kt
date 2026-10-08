@@ -13,11 +13,17 @@ import kotlin.math.hypot
 import kotlin.math.min
 
 /** Sends key down/up events to the game view and remembers which keys are held. */
-class KeySender(private val target: () -> View?) {
+class KeySender(
+    private val target: () -> View?,
+    private val onPress: () -> Unit = {}
+) {
     private val held = HashSet<Int>()
 
     fun press(code: Int) {
-        if (held.add(code)) dispatch(KeyEvent.ACTION_DOWN, code)
+        if (held.add(code)) {
+            onPress()
+            dispatch(KeyEvent.ACTION_DOWN, code)
+        }
     }
 
     fun release(code: Int) {

@@ -25,7 +25,7 @@ The URL lives in one place: `app/src/main/java/com/helmetheroes/mobile/AppConfig
 ## Known limitations / NOT VERIFIED
 - **Not tested.** This project has not been built or run on a device yet.
 - **Flash caveat.** The official site refers to Flash and an Adobe AIR desktop app. Flash does not run in Android WebView, so if the game is Flash-based it will not play here, and no wrapper can fix that. The site also lists an official Google Play app, which may be the better option.
-- Touch controls send keyboard key presses to the game. Movement keys (arrows) and the attack key (Space) are ASSUMPTIONS, change them in `AppConfig.kt` if they do nothing.
+- Touch controls send keyboard key presses to the game. Keys: joystick = W A S D, ATK = Space, B N M = skills, E = pickup, HEAL = comma. Change them in `AppConfig.kt`. Whether the game accepts them is NOT VERIFIED.
 - The 'fit game to screen' option is best-effort and NOT VERIFIED against the real page. Turn it off from the menu button (top-left) if the screen goes black.
 - No settings screen, layout editor or release signing yet. The APK is a debug build, signed with the standard debug key, which is fine for personal installs.
 
